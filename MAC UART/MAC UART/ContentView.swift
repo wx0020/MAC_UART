@@ -5,14 +5,6 @@ import Combine
 private typealias ViewState<Value> = State<Value>
 
 private let teal = Color(red: 0.08, green: 0.57, blue: 0.53)
-private let canvas = Color(red: 0.075, green: 0.105, blue: 0.14)
-private let stamp: DateFormatter = {
-    let f = DateFormatter()
-    f.locale = Locale(identifier: "en_US_POSIX")
-    f.dateFormat = "HH:mm:ss.SSS"
-    return f
-}()
-
 private struct FormatPicker: View {
     @Environment(\.interfaceLanguage) private var language
     @Binding var value: WireFormat
@@ -211,10 +203,11 @@ struct ContentView: View {
                         ForEach(model.peers) { Text($0.address).tag(Optional($0.id)) }
                     }.frame(maxWidth: 340).disabled(model.sending || model.runningSchedule)
                 }
+                Spacer()
             }
-            Spacer()
             Button(actionTitle) { model.toggle() }.buttonStyle(.borderedProminent).tint(teal)
                 .disabled(model.mode == .serial && (model.path.isEmpty || model.changing))
+            if model.mode == .serial { Spacer() }
         }.padding()
     }
 
@@ -226,29 +219,15 @@ struct ContentView: View {
     }
 
     private var logView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 6) {
-                    ForEach(model.entries) { entry in
-                        HStack(alignment: .firstTextBaseline, spacing: 10) {
-                            Text(stamp.string(from: entry.time)).foregroundStyle(.white.opacity(0.58))
-                            Text(entry.rx ? "RX" : "TX").foregroundStyle(entry.rx ? .mint : .orange)
-                            if entry.source.hasPrefix("TCP ") { Text(language.source(entry.source)).foregroundStyle(.white.opacity(0.65)).lineLimit(2) }
-                            Text(verbatim: display == .hex ? entry.hex : entry.text).foregroundStyle(.white)
-                                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                        }.id(entry.id)
-                    }
-                }.font(.system(size: 12, design: .monospaced)).padding(14)
-            }.background(canvas).overlay {
+        ConsoleLogView(entries: model.entries, format: display, language: language, follow: follow)
+            .overlay {
                 if model.entries.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "waveform.path.ecg").font(.largeTitle).foregroundStyle(.mint)
                         Text(model.connected ? language.text("等待收发数据") : language.text("建立连接后查看收发记录")).foregroundStyle(.white.opacity(0.72))
-                    }
+                    }.allowsHitTesting(false)
                 }
-            }.onChange(of: model.entries.last?.id) { _, id in if follow, let id { proxy.scrollTo(id, anchor: .bottom) } }
-            .onChange(of: follow) { _, enabled in if enabled, let id = model.entries.last?.id { proxy.scrollTo(id, anchor: .bottom) } }
-        }
+            }
     }
 }
 
