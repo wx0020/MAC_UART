@@ -76,6 +76,6 @@ struct ScheduleView: View {
                 }.keyboardShortcut(.defaultAction)
                     .disabled(!model.ready || (poll ? !model.commands.contains { $0.includedInPoll == true } : draft.input.isEmpty))
             }
-        }.padding(22).frame(width: 470)
+        }.padding(22).frame(width: 470).background(ConsoleStyle.panel).tint(ConsoleStyle.blue)
     }
 }

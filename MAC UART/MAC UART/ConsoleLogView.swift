@@ -40,8 +40,8 @@ struct ConsoleLogView: NSViewRepresentable {
         view.isEditable = false
         view.isSelectable = true
         view.isRichText = false
-        view.backgroundColor = NSColor(srgbRed: 0.075, green: 0.105, blue: 0.14, alpha: 1)
-        view.textContainerInset = NSSize(width: 10, height: 12)
+        view.backgroundColor = ConsoleStyle.terminal
+        view.textContainerInset = NSSize(width: 13, height: 14)
         view.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
         view.textColor = .white
         view.setAccessibilityLabel(language.text("收发日志"))
@@ -66,7 +66,12 @@ struct ConsoleLogView: NSViewRepresentable {
             formatter.dateFormat = "HH:mm:ss.SSS"
             return formatter
         }()
-        private let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
+        private let font = NSFont.monospacedSystemFont(ofSize: 12.5, weight: .regular)
+        private let paragraph: NSParagraphStyle = {
+            let style = NSMutableParagraphStyle()
+            style.lineSpacing = 3
+            return style
+        }()
 
         func update(_ view: NSTextView, entries: [Entry], format: WireFormat, language: InterfaceLanguage, follow: Bool) {
             guard let storage = view.textStorage else { return }
@@ -109,11 +114,11 @@ struct ConsoleLogView: NSViewRepresentable {
         private func attributedLine(_ entry: Entry, format: WireFormat, language: InterfaceLanguage) -> NSAttributedString {
             let line = NSMutableAttributedString()
             func append(_ text: String, color: NSColor) {
-                line.append(NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color]))
+                line.append(NSAttributedString(string: text, attributes: [.font: font, .foregroundColor: color, .paragraphStyle: paragraph]))
             }
-            let muted = NSColor(white: 0.68, alpha: 1)
+            let muted = NSColor(srgbRed: 0.55, green: 0.65, blue: 0.76, alpha: 1)
             append(stamp.string(from: entry.time) + "  ", color: muted)
-            append(entry.rx ? "RX  " : "TX  ", color: entry.rx ? .systemMint : .systemOrange)
+            append(entry.rx ? "RX  " : "TX  ", color: entry.rx ? NSColor(ConsoleStyle.rx) : NSColor(ConsoleStyle.tx))
             if entry.source.hasPrefix("TCP ") { append(language.source(entry.source) + "  ", color: muted) }
             let payload = format == .hex ? entry.hex : entry.text
             append(payload, color: .white)

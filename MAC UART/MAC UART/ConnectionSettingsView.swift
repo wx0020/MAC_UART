@@ -24,7 +24,7 @@ struct ConnectionSettingsView: View {
             }
             Text(locked ? language.text("请先关闭串口，再修改参数。") : language.text("设置自动保存，下次打开串口时生效。"))
                 .font(.caption).foregroundStyle(.secondary)
-        }.disabled(locked).padding(24).frame(width: 340)
+        }.disabled(locked).padding(24).frame(width: 340).background(ConsoleStyle.panel).tint(ConsoleStyle.blue)
     }
 }
 

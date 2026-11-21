@@ -101,3 +101,8 @@
 "停止录制" = "Stop recording";
 "连续录制…" = "Record traffic…";
 "选择目录，以当前显示格式录制，每卷约 10 MiB。" = "Select a folder to record in the current display format, about 10 MiB per file.";
+"条记录" = "entries";
+"录制中" = "Recording";
+"停止" = "Stop";
+"录制" = "Record";
+"导出" = "Export";

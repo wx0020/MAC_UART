@@ -4,7 +4,22 @@ import Combine
 
 private typealias ViewState<Value> = State<Value>
 
-private let teal = Color(red: 0.08, green: 0.57, blue: 0.53)
+private struct TrafficCounter: View {
+    let label: String
+    let bytes: Int
+    let symbol: String
+    let tint: Color
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol).font(.system(size: 13, weight: .semibold)).foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label).font(.system(size: 10, weight: .semibold, design: .monospaced)).foregroundStyle(ConsoleStyle.muted)
+                Text(String(bytes) + " B").font(.system(size: 16, weight: .medium, design: .monospaced)).foregroundStyle(ConsoleStyle.ink)
+            }
+        }.accessibilityElement(children: .combine)
+    }
+}
 private struct FormatPicker: View {
     @Environment(\.interfaceLanguage) private var language
     @Binding var value: WireFormat
@@ -43,105 +58,20 @@ struct ContentView: View {
     private var ready: Bool { model.ready && !model.runningSchedule }
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
+            identityBar
             connectionBar
-            Divider()
             HSplitView {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Label(language.text("收发日志"), systemImage: "terminal").font(.headline)
-                        Spacer()
-                        FormatPicker(value: $display)
-                        Toggle(language.text("跟随"), isOn: $follow).toggleStyle(.checkbox)
-                        Button(language.text("导出日志…")) {
-                            exportDocument = LogDocument(entries: model.entries, format: display, language: language)
-                            exporting = true
-                        }
-                        .keyboardShortcut("e", modifiers: [.command, .shift])
-                        .disabled(model.entries.isEmpty)
-                        Button(language.text("清空")) { model.clear() }.disabled(model.entries.isEmpty)
-                    }.padding()
-                    logView
-                    HStack {
-                        Text(language.text("发送数据")).font(.headline)
-                        Spacer()
-                        FormatPicker(value: $draft.format)
-                        EndingPicker(value: $draft.ending).disabled(draft.format == .hex)
-                    }.padding([.horizontal, .top])
-                    TextEditor(text: $draft.input).font(.system(.body, design: .monospaced))
-                        .padding(5).frame(height: 76)
-                        .background(Color(nsColor: .textBackgroundColor))
-                        .overlay(RoundedRectangle(cornerRadius: 5).stroke(.quaternary))
-                        .padding(.horizontal).padding(.top, 10)
-                    HStack {
-                        if model.runningSchedule {
-                            Button(language.text("停止自动发送")) { model.stopSchedule() }
-                        } else {
-                            Button(language.text("自动发送…")) { showSchedule = true }
-                        }
-                        if model.runningSchedule || model.completedRounds > 0 {
-                            Text(language.text("已完成轮数") + " " + String(model.completedRounds))
-                                .font(.caption).monospacedDigit().foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Button(language.text("存为指令")) { editor = Command(input: draft.input, format: draft.format, ending: draft.ending) }
-                            .disabled(draft.input.isEmpty)
-                        Button { model.send(draft) } label: { Label(language.text("发送"), systemImage: "paperplane.fill") }
-                            .buttonStyle(.borderedProminent).tint(teal).keyboardShortcut(.return, modifiers: .command)
-                            .disabled(!ready || draft.input.isEmpty)
-                    }.padding()
-                }.frame(minWidth: 510)
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Label(language.text("快捷指令"), systemImage: "bolt.fill").font(.headline)
-                        Spacer()
-                        Button { editor = Command() } label: { Image(systemName: "plus") }.help(language.text("添加指令"))
-                    }.padding()
-                    Divider()
-                    if model.commands.isEmpty {
-                        VStack(spacing: 9) {
-                            Image(systemName: "rectangle.stack.badge.plus").font(.title)
-                            Text(language.text("还没有快捷指令")).font(.headline)
-                            Text(language.text("点 + 新建，或从发送区保存。")).font(.caption)
-                        }.foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.top, 54)
-                    }
-                    ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(model.commands) { cmd in
-                                HStack {
-                                    Button { model.send(cmd) } label: {
-                                        VStack(alignment: .leading, spacing: 5) {
-                                            Text(cmd.name).fontWeight(.medium).lineLimit(1)
-                                            Text(language.text(cmd.format.rawValue) + "  ·  " + cmd.input).font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
-                                        }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-                                    }.buttonStyle(.plain).disabled(!ready).help(language.text("发送此指令"))
-                                    Menu {
-                                        Button(language.text("编辑")) { editor = cmd }
-                                        Button(language.text("删除"), role: .destructive) { model.commands.removeAll { $0.id == cmd.id } }
-                                    } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).fixedSize()
-                                }.padding(10).background(.background, in: RoundedRectangle(cornerRadius: 7))
-                            }
-                        }.padding(10)
-                    }
-                }.frame(minWidth: 215, idealWidth: 248, maxWidth: 410).background(Color(nsColor: .controlBackgroundColor))
+                VStack(spacing: 12) {
+                    trafficPanel
+                    sendPanel
+                }.frame(minWidth: 505).padding(.trailing, 6)
+                commandPanel.padding(.leading, 6)
             }
-            Divider()
-            HStack {
-                Circle().fill(model.connected ? teal : .secondary).frame(width: 8, height: 8)
-                Text(model.status.rendered(language)).lineLimit(1)
-                Button {
-                    if model.recording { model.stopRecording() } else { chooseFolder = true }
-                } label: {
-                    Label(language.text(model.recording ? "停止录制" : "连续录制…"),
-                          systemImage: model.recording ? "stop.circle.fill" : "record.circle")
-                }.foregroundStyle(model.recording ? Color.red : Color.primary)
-                    .help(language.text("选择目录，以当前显示格式录制，每卷约 10 MiB。"))
-                Spacer()
-                Text(model.mode == .serial ? model.settings.summary : language.text(model.mode.rawValue)).foregroundStyle(.secondary)
-                Divider().frame(height: 12)
-                Text("RX  \(model.rxBytes) B     TX  \(model.txBytes) B").monospacedDigit()
-            }.font(.caption).padding(.horizontal).padding(.vertical, 7)
-        }.frame(minWidth: 830, minHeight: 520)
+        }.padding(16).frame(minWidth: 830, minHeight: 535)
+        .background(LinearGradient(colors: [ConsoleStyle.sky, ConsoleStyle.base, ConsoleStyle.field],
+                                   startPoint: .topLeading, endPoint: .bottomTrailing))
+        .tint(ConsoleStyle.blue)
         .onReceive(refresh) { _ in model.refresh() }
         .onDisappear { model.stopSchedule(); model.stopRecording() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
@@ -172,6 +102,144 @@ struct ContentView: View {
         .alert(language.text("通信提示"), isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) {
             Button(language.text("确定")) { model.error = nil }
         } message: { Text(language.text(model.error ?? "")) }
+    }
+
+    private var identityBar: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "waveform.path.ecg")
+                .font(.system(size: 23, weight: .medium))
+                .foregroundStyle(.white).frame(width: 41, height: 41)
+                .background(LinearGradient(colors: [Color(red: 0.17, green: 0.43, blue: 0.72), Color(red: 0.06, green: 0.17, blue: 0.32)], startPoint: .topLeading, endPoint: .bottomTrailing),
+                            in: RoundedRectangle(cornerRadius: 11))
+            Text("MAC UART").font(.system(size: 26, weight: .semibold, design: .rounded))
+                .tracking(-0.8).foregroundStyle(ConsoleStyle.ink)
+            Divider().frame(height: 23)
+            HStack(spacing: 6) {
+                Circle().fill(model.connected ? Color.green : ConsoleStyle.muted).frame(width: 7, height: 7)
+                Text(model.status.rendered(language)).lineLimit(1).help(model.status.rendered(language))
+            }.font(.system(size: 12, weight: .medium)).foregroundStyle(ConsoleStyle.ink)
+            Spacer(minLength: 8)
+            TrafficCounter(label: "RX", bytes: model.rxBytes, symbol: "arrow.down.left", tint: ConsoleStyle.receiveAccent)
+            Divider().frame(height: 24)
+            TrafficCounter(label: "TX", bytes: model.txBytes, symbol: "arrow.up.right", tint: ConsoleStyle.sendAccent)
+        }
+    }
+
+    private var trafficPanel: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 9) {
+                Image(systemName: "terminal").foregroundStyle(ConsoleStyle.rx)
+                Text(language.text("收发日志")).font(.headline)
+                Spacer(minLength: 2)
+                FormatPicker(value: $display)
+                Toggle(language.text("跟随"), isOn: $follow).toggleStyle(.checkbox).controlSize(.small)
+                Divider().frame(height: 17)
+                Button {
+                    if model.recording { model.stopRecording() } else { chooseFolder = true }
+                } label: {
+                    Label(language.text(model.recording ? "停止" : "录制"), systemImage: model.recording ? "stop.circle.fill" : "record.circle")
+                        .foregroundStyle(model.recording ? Color.red : .white)
+                }.accessibilityLabel(language.text(model.recording ? "停止录制" : "连续录制…"))
+                    .help(language.text(model.recording ? "停止录制" : "连续录制…"))
+                Button {
+                    exportDocument = LogDocument(entries: model.entries, format: display, language: language)
+                    exporting = true
+                } label: { Label(language.text("导出"), systemImage: "square.and.arrow.up") }
+                    .accessibilityLabel(language.text("导出日志…")).help(language.text("导出日志…"))
+                    .keyboardShortcut("e", modifiers: [.command, .shift]).disabled(model.entries.isEmpty)
+                Button { model.clear() } label: { Image(systemName: "trash") }
+                    .accessibilityLabel(language.text("清空")).help(language.text("清空")).disabled(model.entries.isEmpty)
+            }.labelStyle(.titleAndIcon).buttonStyle(.borderless).padding(.horizontal, 16).frame(height: 48)
+                .foregroundStyle(.white).environment(\.colorScheme, .dark)
+                .background(Color(red: 0.095, green: 0.15, blue: 0.22))
+            logView
+            HStack(spacing: 8) {
+                Image(systemName: model.mode == .serial ? "cable.connector" : "network")
+                Text(model.mode == .serial ? model.settings.summary : language.text(model.mode.rawValue))
+                Spacer()
+                if model.recording {
+                    Circle().fill(Color.red).frame(width: 6, height: 6)
+                    Text(language.text("录制中"))
+                }
+                Text(String(model.entries.count) + " " + language.text("条记录"))
+            }.font(.system(size: 11, design: .monospaced)).foregroundStyle(Color.white.opacity(0.73))
+                .padding(.horizontal, 16).frame(height: 27)
+                .background(Color(red: 0.08, green: 0.12, blue: 0.18))
+        }.consolePanel(Color(nsColor: ConsoleStyle.terminal))
+    }
+
+    private var sendPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Label(language.text("发送数据"), systemImage: "paperplane").font(.headline).foregroundStyle(ConsoleStyle.ink)
+                Spacer()
+                FormatPicker(value: $draft.format)
+                EndingPicker(value: $draft.ending).disabled(draft.format == .hex)
+            }.padding([.horizontal, .top])
+            TextEditor(text: $draft.input).font(.system(.body, design: .monospaced))
+                .scrollContentBackground(.hidden).padding(6).frame(height: 58)
+                .background(ConsoleStyle.field, in: RoundedRectangle(cornerRadius: 7))
+                .overlay(RoundedRectangle(cornerRadius: 5).stroke(.quaternary))
+                .padding(.horizontal).padding(.top, 10)
+            HStack {
+                if model.runningSchedule {
+                    Button(language.text("停止自动发送")) { model.stopSchedule() }
+                } else {
+                    Button(language.text("自动发送…")) { showSchedule = true }
+                }
+                if model.runningSchedule || model.completedRounds > 0 {
+                    Text(language.text("已完成轮数") + " " + String(model.completedRounds))
+                        .font(.caption).monospacedDigit().foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button(language.text("存为指令")) { editor = Command(input: draft.input, format: draft.format, ending: draft.ending) }
+                    .disabled(draft.input.isEmpty)
+                Button { model.send(draft) } label: { Label(language.text("发送"), systemImage: "paperplane.fill") }
+                    .buttonStyle(ConsoleActionStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
+                    .disabled(!ready || draft.input.isEmpty)
+            }.buttonStyle(ConsoleActionStyle()).padding(.horizontal).padding(.vertical, 10)
+        }.consolePanel()
+    }
+
+    private var commandPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Label(language.text("快捷指令"), systemImage: "square.stack.3d.up").font(.headline).foregroundStyle(ConsoleStyle.ink)
+                Spacer()
+                Button { editor = Command() } label: { Image(systemName: "plus") }.help(language.text("添加指令"))
+            }.padding()
+            Divider()
+            if model.commands.isEmpty {
+                VStack(spacing: 9) {
+                    Image(systemName: "rectangle.stack.badge.plus").font(.title)
+                    Text(language.text("还没有快捷指令")).font(.headline)
+                    Text(language.text("点 + 新建，或从发送区保存。")).font(.caption)
+                }.foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.top, 54)
+            }
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(model.commands) { cmd in
+                        HStack {
+                            Button { model.send(cmd) } label: {
+                                HStack(spacing: 9) {
+                                    Image(systemName: cmd.format == .hex ? "number" : "chevron.left.forwardslash.chevron.right")
+                                        .font(.system(size: 13, weight: .semibold)).foregroundStyle(ConsoleStyle.blue)
+                                        .frame(width: 29, height: 31).background(ConsoleStyle.sky, in: RoundedRectangle(cornerRadius: 6))
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(cmd.name).foregroundStyle(ConsoleStyle.ink).fontWeight(.semibold).lineLimit(1)
+                                        Text(language.text(cmd.format.rawValue) + "  ·  " + cmd.input).font(.system(.caption, design: .monospaced)).foregroundStyle(ConsoleStyle.muted).lineLimit(2)
+                                    }
+                                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                            }.buttonStyle(.plain).disabled(!ready).help(language.text("发送此指令"))
+                            Menu {
+                                Button(language.text("编辑")) { editor = cmd }
+                                Button(language.text("删除"), role: .destructive) { model.commands.removeAll { $0.id == cmd.id } }
+                            } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).fixedSize()
+                        }.padding(10).background(ConsoleStyle.field, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                }.padding(10)
+            }
+        }.frame(minWidth: 212, idealWidth: 245, maxWidth: 380, maxHeight: .infinity, alignment: .top).consolePanel()
     }
 
     private var connectionBar: some View {
@@ -205,10 +273,10 @@ struct ContentView: View {
                 }
                 Spacer()
             }
-            Button(actionTitle) { model.toggle() }.buttonStyle(.borderedProminent).tint(teal)
+            Button(actionTitle) { model.toggle() }.buttonStyle(ConsoleActionStyle(prominent: true))
                 .disabled(model.mode == .serial && (model.path.isEmpty || model.changing))
             if model.mode == .serial { Spacer() }
-        }.padding()
+        }.padding(.horizontal, 14).frame(height: 49).consolePanel()
     }
 
     private var actionTitle: String {
@@ -262,6 +330,6 @@ private struct CommandEditor: View {
                     } catch { message = error.localizedDescription }
                 }.keyboardShortcut(.defaultAction).disabled(command.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.input.isEmpty)
             }
-        }.padding(22).frame(width: 400)
+        }.padding(22).frame(width: 400).background(ConsoleStyle.panel).tint(ConsoleStyle.blue)
     }
 }
