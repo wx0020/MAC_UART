@@ -12,6 +12,14 @@ struct ScheduleView: View {
     @AppStorage("schedule.rounds") private var rounds = "1"
     @FormState private var message = ""
 
+    private var draftPreview: String {
+        guard let count = draft.byteCount else {
+            return language.text("HEX 每字节需要两位十六进制数字，例如 01 A0 FF。")
+        }
+        guard count > 0 else { return language.text("请先在发送区输入数据。") }
+        return draft.input.isEmpty ? draft.ending.debugDescription : draft.input
+    }
+
     private func move(_ id: UUID, by offset: Int) {
         guard let i = model.commands.firstIndex(where: { $0.id == id }),
               model.commands.indices.contains(i + offset) else { return }
@@ -49,7 +57,7 @@ struct ScheduleView: View {
                     }.padding(5)
                 }.frame(height: 175)
             } else {
-                Text(draft.input.isEmpty ? language.text("请先在发送区输入数据。") : draft.input)
+                Text(draftPreview)
                     .lineLimit(3).font(.system(.body, design: .monospaced))
             }
             HStack {
@@ -74,7 +82,7 @@ struct ScheduleView: View {
                     if model.runningSchedule { dismiss() }
                     else if let error = model.error { message = error; model.error = nil }
                 }.keyboardShortcut(.defaultAction)
-                    .disabled(!model.ready || (poll ? !model.commands.contains { $0.includedInPoll == true } : draft.input.isEmpty))
+                    .disabled(!model.ready || (poll ? !model.commands.contains { $0.includedInPoll == true } : (draft.byteCount ?? 0) == 0))
             }
         }.padding(22).frame(width: 470).background(ConsoleStyle.panel).tint(ConsoleStyle.blue)
     }

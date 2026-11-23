@@ -1,19 +1,13 @@
-//
-//  MAC_UARTTests.swift
-//  MAC UARTTests
-//
-//  Created by 翔吴 on 2026/11/19.
-//
-
 import Testing
 @testable import MAC_UART
 
 struct MAC_UARTTests {
-
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+    @Test func draftByteCountMatchesWirePayload() {
+        #expect(Command(input: "电", ending: "\r\n").byteCount == 5)
+        #expect(Command(ending: "\r").byteCount == 1)
+        #expect(Command(input: "01 aA\nFF", format: .hex, ending: "\r\n").byteCount == 3)
+        #expect(Command(input: "  ", format: .hex).byteCount == 0)
+        #expect(Command(input: "F", format: .hex).byteCount == nil)
+        #expect(Command(input: "G0", format: .hex).byteCount == nil)
     }
-
 }

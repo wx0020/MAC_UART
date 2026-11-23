@@ -4,6 +4,12 @@ English · [简体中文](README.zh-CN.md)
 
 MAC UART is a native macOS serial and TCP debugging tool for working with embedded devices, USB-to-serial adapters, and card readers. Send a binary command, inspect the reply in HEX, and save the command for the next device. For longer tests, run a command sequence and record traffic directly to disk.
 
+## Install 1.1.0 (build 3)
+
+For Apple silicon Macs running macOS 14 or later. Open the [DMG installer](dist/v1.1.0/MAC-UART-1.1.0-macOS-arm64.dmg), drag **MAC UART.app** onto **Applications**, eject the disk image, and launch the app from Applications.
+
+This build uses an ad hoc signature and has not been notarized by Apple. macOS may block the first launch of a downloaded copy. See the [release notes and SHA-256 checksum](dist/v1.1.0/RELEASE.md).
+
 ## Connect a device
 
 | Mode | How to connect |
@@ -12,13 +18,13 @@ MAC UART is a native macOS serial and TCP debugging tool for working with embedd
 | TCP Client | Enter the server’s IP address or hostname and port, then click **Connect**. |
 | TCP Server | Enter a local port and click **Start listening**. When multiple clients connect, choose the recipient under **Send to**. The traffic log identifies each peer. |
 
-Open **Serial → Serial settings…** (⌘,) to change baud rate, data bits (5–8), parity (none, odd, even), stop bits (1 or 2), and flow control (none, RTS/CTS, XON/XOFF). Close the serial port before changing its settings. The app saves the settings for the next connection.
+Click the settings button beside the baud rate or press ⌘, to change baud rate, data bits (5–8), parity (none, odd, even), stop bits (1 or 2), and flow control (none, RTS/CTS, XON/XOFF). Close the serial port before changing its settings. The app saves the settings for the next connection.
 
 ## Send and inspect data
 
-- Choose **Text** to send UTF-8 with an optional CR, LF, or CR LF ending. Choose **HEX** to send raw bytes. For example, entering `41 0D 0A` sends three bytes. Click **Send** or press ⌘Return.
+- Choose **Text** to send UTF-8 with an optional CR, LF, or CR LF ending. Choose **HEX** to send raw bytes. For example, entering `41 0D 0A` sends three bytes. The send area shows the encoded byte count, including any text line ending, and flags malformed HEX as you type. Click **Send** or press ⌘Return.
 - The traffic log shows millisecond timestamps, RX/TX direction, and byte counters. Its Text/HEX selector works independently of the send format and also applies to existing entries.
-- Use **Save as command** to keep a named command with its format and line ending. Click a saved command to send it over the active connection.
+- Use **Save as command** to keep a named command with its format and line ending. Click a saved command to send it over the active connection. Choose **… → Load into send area** to edit a copy before sending.
 
 ## Repeat a command or run a sequence
 
@@ -41,7 +47,7 @@ Both outputs include the date, millisecond timestamp, direction, and serial path
 
 ## Run or build
 
-The deployment target is **macOS 14 or later**. The locally built app targets **Apple silicon**. If you have the packaged copy, open `dist/MAC_UART.app`. To build from source, use Xcode with macOS support. This project has been built with Xcode 27.2.
+The deployment target is **macOS 14 or later**. The locally built app targets **Apple silicon**. To build from source, use Xcode with macOS support. This project has been built with Xcode 27.2.
 
 From the project root, run:
 

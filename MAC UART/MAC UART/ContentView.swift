@@ -45,8 +45,11 @@ private struct EndingPicker: View {
 
 struct ContentView: View {
     @Environment(\.interfaceLanguage) private var language
+    @Environment(\.openWindow) private var openWindow
     @ObservedObject var model: ConsoleModel
     @ViewState private var draft = Command()
+    @ViewState private var draftByteCount: Int? = 0
+    @FocusState private var editingDraft: Bool
     @ViewState private var display = WireFormat.text
     @ViewState private var editor: Command?
     @ViewState private var exportDocument: LogDocument?
@@ -72,6 +75,9 @@ struct ContentView: View {
         .background(LinearGradient(colors: [ConsoleStyle.sky, ConsoleStyle.base, ConsoleStyle.field],
                                    startPoint: .topLeading, endPoint: .bottomTrailing))
         .tint(ConsoleStyle.blue)
+        .onChange(of: draft, initial: true) { _, command in
+            draftByteCount = command.byteCount
+        }
         .onReceive(refresh) { _ in model.refresh() }
         .onDisappear { model.stopSchedule(); model.stopRecording() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
@@ -173,14 +179,27 @@ struct ContentView: View {
             HStack {
                 Label(language.text("发送数据"), systemImage: "paperplane").font(.headline).foregroundStyle(ConsoleStyle.ink)
                 Spacer()
+                if let draftByteCount {
+                    Text("\(draftByteCount) B").monospacedDigit()
+                        .font(.caption).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("draftByteCount")
+                }
                 FormatPicker(value: $draft.format)
                 EndingPicker(value: $draft.ending).disabled(draft.format == .hex)
             }.padding([.horizontal, .top])
-            TextEditor(text: $draft.input).font(.system(.body, design: .monospaced))
+            TextEditor(text: $draft.input)
+                .focused($editingDraft)
+                .accessibilityLabel(language.text("发送内容"))
+                .accessibilityIdentifier("sendDraft")
+                .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden).padding(6).frame(height: 58)
                 .background(ConsoleStyle.field, in: RoundedRectangle(cornerRadius: 7))
                 .overlay(RoundedRectangle(cornerRadius: 5).stroke(.quaternary))
                 .padding(.horizontal).padding(.top, 10)
+            if draftByteCount == nil {
+                Label(language.text("HEX 每字节需要两位十六进制数字，例如 01 A0 FF。"), systemImage: "exclamationmark.circle")
+                    .font(.caption).foregroundStyle(.red).padding(.horizontal).padding(.top, 4)
+            }
             HStack {
                 if model.runningSchedule {
                     Button(language.text("停止自动发送")) { model.stopSchedule() }
@@ -193,10 +212,10 @@ struct ContentView: View {
                 }
                 Spacer()
                 Button(language.text("存为指令")) { editor = Command(input: draft.input, format: draft.format, ending: draft.ending) }
-                    .disabled(draft.input.isEmpty)
+                    .disabled((draftByteCount ?? 0) == 0)
                 Button { model.send(draft) } label: { Label(language.text("发送"), systemImage: "paperplane.fill") }
                     .buttonStyle(ConsoleActionStyle(prominent: true)).keyboardShortcut(.return, modifiers: .command)
-                    .disabled(!ready || draft.input.isEmpty)
+                    .disabled(!ready || (draftByteCount ?? 0) == 0)
             }.buttonStyle(ConsoleActionStyle()).padding(.horizontal).padding(.vertical, 10)
         }.consolePanel()
     }
@@ -232,9 +251,14 @@ struct ContentView: View {
                                 }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                             }.buttonStyle(.plain).disabled(!ready).help(language.text("发送此指令"))
                             Menu {
+                                Button(language.text("载入发送区")) {
+                                    draft = Command(input: cmd.input, format: cmd.format, ending: cmd.ending)
+                                    editingDraft = true
+                                }
                                 Button(language.text("编辑")) { editor = cmd }
                                 Button(language.text("删除"), role: .destructive) { model.commands.removeAll { $0.id == cmd.id } }
                             } label: { Image(systemName: "ellipsis") }.menuStyle(.borderlessButton).fixedSize()
+                                .accessibilityLabel(language.text("指令操作") + " · " + cmd.name)
                         }.padding(10).background(ConsoleStyle.field, in: RoundedRectangle(cornerRadius: 8))
                     }
                 }.padding(10)
@@ -258,6 +282,8 @@ struct ContentView: View {
                 Picker(language.text("波特率"), selection: $model.settings.baud) {
                     ForEach(SerialSettings.rates, id: \.self) { Text(String($0)).tag($0) }
                 }.fixedSize().disabled(model.connected || model.changing)
+                Button { openWindow(id: "parameters") } label: { Image(systemName: "slider.horizontal.3") }
+                    .accessibilityLabel(language.text("串口参数设置")).help(language.text("串口参数设置…"))
             } else {
                 if model.mode == .client {
                     TextField(language.text("服务器 IP 或主机名"), text: $model.host).frame(maxWidth: 235)
@@ -304,7 +330,6 @@ private struct CommandEditor: View {
     @ViewState var command: Command
     var save: (Command) -> Void
     @Environment(\.dismiss) var dismiss
-    @ViewState private var message = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -316,19 +341,16 @@ private struct CommandEditor: View {
             }
             Text(language.text("发送内容")).font(.headline)
             TextEditor(text: $command.input).font(.system(.body, design: .monospaced)).frame(height: 95)
-            if !message.isEmpty { Text(language.text(message)).foregroundStyle(.red) }
+            if command.byteCount == nil {
+                Text(language.text("HEX 每字节需要两位十六进制数字，例如 01 A0 FF。")).foregroundStyle(.red)
+            }
             HStack {
                 Spacer()
                 Button(language.text("取消")) { dismiss() }.keyboardShortcut(.cancelAction)
                 Button(language.text("保存")) {
-                    do {
-                        guard !(try command.format.encode(command.input, ending: command.ending)).isEmpty else {
-                            message = language.text("请输入发送内容。"); return
-                        }
-                        save(command)
-                        dismiss()
-                    } catch { message = error.localizedDescription }
-                }.keyboardShortcut(.defaultAction).disabled(command.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || command.input.isEmpty)
+                    save(command)
+                    dismiss()
+                }.keyboardShortcut(.defaultAction).disabled(command.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (command.byteCount ?? 0) == 0)
             }
         }.padding(22).frame(width: 400).background(ConsoleStyle.panel).tint(ConsoleStyle.blue)
     }

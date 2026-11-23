@@ -27,7 +27,7 @@ enum WireFormat: String, Codable, CaseIterable {
     }
 }
 
-struct Command: Identifiable, Codable {
+struct Command: Identifiable, Codable, Equatable {
     var id = UUID()
     var name = ""
     var input = ""
@@ -36,6 +36,8 @@ struct Command: Identifiable, Codable {
     // 可选字段兼容旧版本已保存的快捷指令。
     var includedInPoll: Bool?
     var delayMS: Int?
+
+    var byteCount: Int? { try? format.encode(input, ending: ending).count }
 }
 
 struct Entry: Identifiable {

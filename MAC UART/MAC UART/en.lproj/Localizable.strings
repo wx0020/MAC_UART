@@ -106,3 +106,5 @@
 "停止" = "Stop";
 "录制" = "Record";
 "导出" = "Export";
+"载入发送区" = "Load into send area";
+"指令操作" = "Command actions";

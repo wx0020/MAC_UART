@@ -3,5 +3,9 @@ xcuserdata/
 *.xcuserstate
 DerivedData/
 /build/
-/dist/
+/dist/*
+!/dist/v*/
+/dist/v*/*
+!/dist/v*/*.dmg
+!/dist/v*/RELEASE.md
 /generated_images/

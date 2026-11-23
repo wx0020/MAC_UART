@@ -34,6 +34,36 @@ final class MAC_UARTUITests: XCTestCase {
     }
 
     @MainActor
+    func testLoadAndValidateOfflineCommand() throws {
+        let app = XCUIApplication()
+        let fixture = #"[{"id":"203F2CB9-606B-496B-95A2-396DD0ECDA55","name":"UX fixture","input":"01 FF","format":"HEX","ending":""}]"#
+        let data = fixture.utf8.map { String(format: "%02x", $0) }.joined()
+        app.launchArguments = ["-interface.language", "english", "-serial.commands", "<" + data + ">"]
+        app.launch()
+
+        app.buttons["Serial settings"].click()
+        let settings = app.windows["Serial settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 4))
+        settings.buttons[XCUIIdentifierCloseWindow].click()
+
+        let actions = app.scrollViews.menuButtons.firstMatch
+        actions.click()
+        app.menuItems["Load into send area"].click()
+        let draft = app.textViews["sendDraft"]
+        XCTAssertEqual(draft.value as? String, "01 FF")
+        XCTAssertTrue(app.buttons["Save as command"].isEnabled)
+        app.typeKey("a", modifierFlags: .command)
+        app.typeText("01 F")
+        XCTAssertTrue(app.staticTexts["Use two hex digits per byte, e.g. 01 A0 FF."].exists)
+        XCTAssertFalse(app.buttons["Save as command"].isEnabled)
+        app.typeText("0")
+        XCTAssertTrue(app.buttons["Save as command"].isEnabled)
+        actions.click()
+        app.menuItems["Load into send area"].click()
+        XCTAssertEqual(draft.value as? String, "01 FF")
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
